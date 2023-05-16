@@ -1,0 +1,56 @@
+name: boot 线刷包
+
+on:
+  workflow_dispatch:
+    inputs:
+      rom_url:
+        description: '官方下载直链'
+        required: true
+        default: 'https://wlansysupwrrdl.vivo.com.cn/upgrade/recovery/recoveryFiles/20230404211028f3956e5ab47088575793c14b1a6c1b80.zip?sign=9126d2337a7023d4a8f2f559d824799a&t=645fbcc9'
+      removeAvb:
+        description: '修补 boot 镜像中的 vbmeta'
+        default: "false"
+        type: boolean
+        
+      aliYun:
+        description: '上传到阿里云'
+        required: true
+        default: "true"
+        type: boolean
+      aliRefreshToken:
+        description: '阿里云Token  '
+        required: true
+        default: ""
+
+jobs:
+  vivo-flash:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v2
+
+      - name: 安装依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install aria2 unzip p7zip dos2unix
+         
+      - name: 运行核心脚本
+        run: |
+          cd ${{ github.workspace }}
+          chmod 777 ./*
+          sed -i '/.*romLink==*/c\romLink=${{ github.event.inputs.rom_url }}' ${{ github.workspace }}/bin/other/config.ini
+          sed -i '/.*aliRefreshToken==*/c\aliRefreshToken=${{ github.event.inputs.aliRefreshToken }}' ${{ github.workspace }}/bin/other/config.ini
+          sed -i '/.*removeAvb==*/c\removeAvb=${{ github.event.inputs.removeAvb }}' ${{ github.workspace }}/bin/other/config.ini
+          df -h
+          ./make.sh ${{ github.workspace }}
+          
+
+      - name: 上传日志
+        uses: ncipollo/release-action@v1.12.0
+        with:
+            bodyfile: "${{ github.workspace }}/out/rebuild.log"
+            artifacts: "${{ github.workspace }}/out/magisk*"
+            tag: "vivo_${{ github.run_id }}"
+            token: ${{ secrets.GITHUB_TOKEN }}
